@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            font-family: 'Roboto', sans-serif;
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+        .game-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            max-width: 900px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        canvas {
+            border: 3px solid #00d4ff;
+            border-radius: 10px;
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            max-width: 100%;
+            height: auto;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid #00d4ff;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.7);
+            z-index: 10;
+        }
+        #gameOver h1 {
+            margin: 0 0 15px 0;
+            font-size: 2.5em;
+            text-shadow: 0 0 10px #00d4ff;
+        }
+        #gameOver p {
+            margin: 0 0 25px 0;
+            font-size: 1.2em;
+        }
+        button {
+            padding: 12px 25px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #000;
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 212, 255, 0.6);
+        }
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 10px;
+            }
+            canvas {
+                width: 100%;
+                height: auto;
+            }
+            #gameOver {
+                padding: 20px;
+                width: 90%;
+            }
+            #gameOver h1 {
+                font-size: 2em;
+            }
+            #gameOver p {
+                font-size: 1em;
+            }
+            button {
+                padding: 10px 20px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="pong" width="800" height="400"></canvas>
+        <div id="gameOver">
+            <h1>Game Over</h1>
+            <p>Player: <span id="playerScore">0</span> - AI: <span id="aiScore">0</span></p>
+            <button onclick="restart()">Restart</button>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('pong');
+        const ctx = canvas.getContext('2d');
+        const gameOverDiv = document.getElementById('gameOver');
+        const playerScoreSpan = document.getElementById('playerScore');
+        const aiScoreSpan = document.getElementById('aiScore');
+
+        // Ball object
+        const ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 10,
+            velocityX: 5,
+            velocityY: 5,
+            speed: 7
+        };
+
+        // Player paddle
+        const player = {
+            x: 0,
+            y: canvas.height / 2 - 50,
+            width: 10,
+            height: 100,
+            score: 0
+        };
+
+        // AI paddle
+        const ai = {
+            x: canvas.width - 10,
+            y: canvas.height / 2 - 50,
+            width: 10,
+            height: 100,
+            score: 0
+        };
+
+        // Game state
+        let gameRunning = true;
+
+        // Draw rectangle
+        function drawRect(x, y, w, h, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, w, h);
+        }
+
+        // Draw circle
+        function drawCircle(x, y, r, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2, false);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Draw text
+        function drawText(text, x, y, color) {
+            ctx.fillStyle = color;
+            ctx.font = "45px Arial";
+            ctx.fillText(text, x, y);
+        }
+
+        // Draw net
+        function drawNet() {
+            for (let i = 0; i <= canvas.height; i += 15) {
+                drawRect(canvas.width / 2 - 1, i, 2, 10, "white");
+            }
+        }
+
+        // Render function
+        function render() {
+            // Clear canvas
+            drawRect(0, 0, canvas.width, canvas.height, "black");
+
+            // Draw net
+            drawNet();
+
+            // Draw scores
+            drawText(player.score, canvas.width / 4, canvas.height / 5, "white");
+            drawText(ai.score, 3 * canvas.width / 4, canvas.height / 5, "white");
+
+            // Draw paddles
+            drawRect(player.x, player.y, player.width, player.height, "white");
+            drawRect(ai.x, ai.y, ai.width, ai.height, "white");
+
+            // Draw ball
+            drawCircle(ball.x, ball.y, ball.radius, "white");
+        }
+
+        // Collision detection
+        function collision(b, p) {
+            b.top = b.y - b.radius;
+            b.bottom = b.y + b.radius;
+            b.left = b.x - b.radius;
+            b.right = b.x + b.radius;
+
+            p.top = p.y;
+            p.bottom = p.y + p.height;
+            p.left = p.x;
+            p.right = p.x + p.width;
+
+            return b.right > p.left && b.bottom > p.top && b.left < p.right && b.top < p.bottom;
+        }
+
+        // Reset ball
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.velocityX = -ball.velocityX;
+            ball.speed = 7;
+        }
+
+        // Update function
+        function update() {
+            if (!gameRunning) return;
+
+            // Ball movement
+            ball.x += ball.velocityX;
+            ball.y += ball.velocityY;
+
+            // AI movement
+            let aiCenter = ai.y + ai.height / 2;
+            if (aiCenter < ball.y - 35) {
+                ai.y += 6;
+            } else if (aiCenter > ball.y + 35) {
+                ai.y -= 6;
+            }
+
+            // Ball collision with top and bottom walls
+            if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) {
+                ball.velocityY = -ball.velocityY;
+            }
+
+            // Ball collision with paddles
+            let playerPaddle = (ball.x < canvas.width / 2) ? player : ai;
+            if (collision(ball, playerPaddle)) {
+                let collidePoint = (ball.y - (playerPaddle.y + playerPaddle.height / 2));
+                collidePoint = collidePoint / (playerPaddle.height / 2);
+
+                let angleRad = (Math.PI / 4) * collidePoint;
+
+                let direction = (ball.x < canvas.width / 2) ? 1 : -1;
+                ball.velocityX = direction * ball.speed * Math.cos(angleRad);
+                ball.velocityY = ball.speed * Math.sin(angleRad);
+
+                ball.speed += 0.1;
+            }
+
+            // Ball goes off screen
+            if (ball.x - ball.radius < 0) {
+                ai.score++;
+                resetBall();
+            } else if (ball.x + ball.radius > canvas.width) {
+                player.score++;
+                resetBall();
+            }
+
+            // Check for game over
+            if (player.score >= 7 || ai.score >= 7) {
+                gameRunning = false;
+                gameOverDiv.style.display = 'block';
+                playerScoreSpan.textContent = player.score;
+                aiScoreSpan.textContent = ai.score;
+            }
+        }
+
+        // Game loop
+        function game() {
+            update();
+            render();
+        }
+
+        // Mouse movement
+        canvas.addEventListener('mousemove', (e) => {
+            let rect = canvas.getBoundingClientRect();
+            player.y = e.clientY - rect.top - player.height / 2;
+        });
+
+        // Restart function
+        function restart() {
+            player.score = 0;
+            ai.score = 0;
+            gameRunning = true;
+            gameOverDiv.style.display = 'none';
+            resetBall();
+        }
+
+        // Start game
+        setInterval(game, 1000 / 50); // 50 FPS
+    </script>
+</body>
+</html>
